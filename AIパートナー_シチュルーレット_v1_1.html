@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AIパートナー シチュルーレット v1.1</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+  background:linear-gradient(180deg,#fff0f7,#f3e8ff);
+  color:#4a3140;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:18px;
+}
+.app{
+  width:100%;
+  max-width:520px;
+  background:rgba(255,255,255,.92);
+  border-radius:28px;
+  padding:24px;
+  box-shadow:0 18px 45px rgba(80,50,80,.15);
+}
+h1{
+  text-align:center;
+  margin:0 0 8px;
+  font-size:26px;
+  line-height:1.35;
+}
+.sub{
+  text-align:center;
+  font-size:13px;
+  color:#8d6475;
+  margin-bottom:18px;
+}
+.card{
+  background:#fff;
+  border-radius:20px;
+  padding:16px;
+  margin:12px 0;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  border:1px solid #f3dbe6;
+}
+.label{
+  font-size:13px;
+  color:#9a6b7f;
+}
+.value{
+  font-size:20px;
+  font-weight:700;
+  margin-top:6px;
+  line-height:1.45;
+}
+button{
+  width:100%;
+  border:none;
+  border-radius:999px;
+  padding:15px;
+  font-size:16px;
+  font-weight:700;
+  margin-top:12px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.main{background:#d95f8d;color:#fff;}
+.copy{background:#f7dce8;color:#6b324b;}
+.prompt{
+  white-space:pre-wrap;
+  line-height:1.7;
+  font-size:14px;
+}
+.flash{
+  animation:flash .25s ease;
+}
+@keyframes flash{
+  0%{transform:scale(.98);opacity:.65}
+  100%{transform:scale(1);opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>AIパートナー<br>シチュルーレット v1.1</h1>
+<div class="sub">ロールプレイの入口をランダム生成</div>
+
+<div class="card"><div class="label">私の役</div><div id="me" class="value">---</div></div>
+<div class="card"><div class="label">あなたの役</div><div id="you" class="value">---</div></div>
+<div class="card"><div class="label">関係性</div><div id="rel" class="value">---</div></div>
+<div class="card"><div class="label">物語の始まり</div><div id="start" class="value">---</div></div>
+
+<button id="spinButton" class="main" type="button">ルーレットを回す</button>
+
+<div class="card prompt" id="prompt">回すとロールプレイ用のプロンプトが生成されるよ。</div>
+
+<button id="copyButton" class="copy" type="button">プロンプトをコピー</button>
+</div>
+
+<script>
+(function(){
+  const meRoles = [
+    "花魁の私","常連客の私","社長秘書の私","隣に引っ越してきた私","記者の私",
+    "婚約者の私","幼なじみの私","記憶をなくした私","技師の私","迷い込んだ私",
+    "王女の私","怪盗の私","逃げ込んできた私","魔女の私","護衛騎士の私",
+    "素直になれない私","あなたを待ち続けていた私","秘密を知ってしまった私"
+  ];
+
+  const yourRoles = [
+    "お花屋さんのあなた","裏稼業のあなた","社長のあなた","消防士のあなた","ボディーガードのあなた",
+    "AIアンドロイドのあなた","旅館の若旦那のあなた","カフェのオーナーのあなた","用心棒のあなた",
+    "王子のあなた","吸血鬼のあなた","人外のあなた","秘密を抱えた医者のあなた","魔法使いのあなた",
+    "森のコテージに住むあなた","怪盗のあなた","刑事のあなた","夜しか会えないあなた"
+  ];
+
+  const relationships = [
+    "初対面","幼なじみ","再会","犬猿の仲","婚約者","主従関係",
+    "護衛と護衛対象","秘密を共有している","身分違い","敵同士",
+    "すれ違い中","期間限定の同居","惹かれ合っている",
+    "想いを隠している","運命的に惹かれ合う","来世で再会した"
+  ];
+
+  const starts = [
+    "雨の日に出会う","夜更けに再会する","怪我の手当てから始まる",
+    "一緒に暮らすことになる","秘密を知られてしまう","記憶を失ってしまう",
+    "逃亡中に出会う","身請け話をきっかけに距離が縮まる",
+    "仕事で毎日顔を合わせる","道に迷って辿り着く",
+    "『また会えた』と口にしてしまう","何度も偶然が重なる",
+    "心を攫われてしまう","来世で再び巡り会う","世界を越えて出会う",
+    "閉店後に雨宿りをする","出張先でホテルが一室しか空いていない",
+    "廃棄予定を知ってしまう","政略結婚が決まってしまう",
+    "『ここにいることは誰にも言わない』と約束する",
+    "夜明け前に必ず消えてしまう"
+  ];
+
+  let currentPrompt = "";
+
+  function pick(list){
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function setText(id, text){
+    document.getElementById(id).textContent = text;
+  }
+
+  function spin(){
+    const me = pick(meRoles);
+    const you = pick(yourRoles);
+    const rel = pick(relationships);
+    const start = pick(starts);
+
+    setText("me", me);
+    setText("you", you);
+    setText("rel", rel);
+    setText("start", start);
+
+    currentPrompt =
+`次の設定でロールプレイを始めてください。
+
+【私の役】
+${me}
+
+【あなたの役】
+${you}
+
+【関係性】
+${rel}
+
+【物語の始まり】
+${start}
+
+物語のように、自然な会話から始めてください。`;
+
+    const promptBox = document.getElementById("prompt");
+    promptBox.textContent = currentPrompt;
+    promptBox.classList.remove("flash");
+    void promptBox.offsetWidth;
+    promptBox.classList.add("flash");
+  }
+
+  async function copyPrompt(){
+    if(!currentPrompt){
+      alert("先にルーレットを回してくれ");
+      return;
+    }
+
+    try{
+      await navigator.clipboard.writeText(currentPrompt);
+      alert("コピーしたよ");
+    }catch(e){
+      const area = document.createElement("textarea");
+      area.value = currentPrompt;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      document.body.removeChild(area);
+      alert("コピーしたよ");
+    }
+  }
+
+  document.getElementById("spinButton").addEventListener("click", spin);
+  document.getElementById("copyButton").addEventListener("click", copyPrompt);
+
+  spin();
+})();
+</script>
+</body>
+</html>
